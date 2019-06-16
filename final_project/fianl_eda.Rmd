@@ -1,0 +1,130 @@
+---
+title: "EDA Project"
+author: "Tzu Yun Kan"
+date: "6/15/2019"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+Explore and uncover insights of gpaminder.csv, and represent the insights by different data visulization
+
+```{r, echo = FALSE, message=FALSE, results="hide", warning=FALSE}
+library(readr)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+setwd("~/Desktop/EDA")
+df = read.csv('gapminder.csv')
+```
+
+## Dataset:
+- life - life expectancy
+- income - gdp per capita
+- year - from 1800 to 2015
+- country - **`r length(unique(df$Country))`** unique countries
+- region - **`r length(unique(df$region ))`** unique regions
+- population - census data collected about every 10 years
+
+## Describing data
+- Number of observations of the dataset: **`r nrow(df)`** rows
+- Number of variable of the dataset: **`r ncol(df)`** variables
+- Number of missing value of the dataset for each variables are 
+**`r colSums(is.na(df))`** 
+- Types of variables: 
+1. Country is **`r class(df$Country) `**
+2. Year is **`r class(df$Year) `**
+3. life is **`r class(df$life) `**
+4. population is **`r class(df$population)`**
+5. income is **`r class(df$income) `**
+6. region is **`r class(df$region) `**
+
+Preprocessing: 
+- Imputing the missing data of the population variable by most recent non-missing value, and convert the populaiton variable into numeric type
+
+- Removing rest of the missing value from the dataset
+
+```{r, echo = FALSE, message=FALSE, results="hide", warning=FALSE}
+class(df$population)
+df$population = as.numeric(as.character(df$population))
+class(df$population)
+df = df %>% fill(population)
+df = na.omit(df)
+```
+
+- population is now **`r class(df$population) `**
+- Number of missing value of the dataset for each variable are now
+**`r colSums(is.na(df))`**
+
+How disperse is the data (e.g price), range of variables (e.g. years)
+
+- Standard diviation of the Year is **`r sd(df$Year)`** years
+- Standard diviation of the income is **`r sd(df$income)`** dollars
+- Standard diviation of the life is **`r sd(df$life)`** years 
+- Standard diviation of the population is **`r sd(df$population)`** number of people
+
+## Analysis 
+
+### Questions: 
+
+1. Which 5 countries that have longest life expectency from 1970 to 2015 in average? How does the distribution of life expectency like for those countries? 
+
+```{r, echo = FALSE, message=FALSE, results="hide", warning=FALSE}
+tb1 = select(df, Country, Year, life) %>% filter(Year > 1970) %>% group_by(Country) %>% summarise(avg = mean(life)) %>% arrange(desc(avg))
+tb1 = tb1[1:5,]
+
+q1 = filter(df, Country == tb1$Country) %>% filter(Year > 1970)
+ggplot(q1, aes(Country, life, color = Country)) + geom_boxplot() + labs(title="Life expectency per country", y = "Years", x = "Country")
+```
+**Figure 1** is a boxplot which shows the life expectency of Andorra, Hong Kong, Iceland, Japan, and Switzerland since 1970s. Besides Andorra, Hong Kong's life expectency is higher in average and also more sparse than other countries. 
+
+2. How does these 5 countries life expectency trend like from 1800 to 2015
+
+```{r, echo = FALSE, message=FALSE, results="hide", warning=FALSE}
+q2 = filter(df, Country == tb1$Country)
+ggplot(data = q2, mapping = aes(x = Year, y = life, color = Country)) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(values = c("red","purple", "orange","green","blue")) + 
+  labs(title="Life expectency trend from 1800 to 2015", y = "Life Expectancy", x = "Year")
+```
+**Figure 2** is a scatter plot which shows the life expectency trend of Andorra, Hong Kong, Iceland, Japan, and Switzerland since 1800. From 1875 to 1950 is the time period that life expectency increased the most. 
+
+
+3. How does life expectency related to GDP for these five countries? 
+
+```{r, echo = FALSE, message=FALSE, results="hide", warning=FALSE}
+ggplot(data = q2, mapping = aes(x = income, y = life, color = Country)) +
+  geom_point(alpha = 0.5) +
+  scale_color_manual(values = c("red","purple", "orange","green","blue")) + 
+  labs(title="Relationship between GDP and life expectancy", y = "Life Expectancy", x = "GDP")
+```
+
+**Figure 3** is a scatter plot which shows the life expectency related to GDP of Andorra, Hong Kong, Iceland, Japan, and Switzerland. It indicates higher the GDP a country has, higher the life expectancy it is. 
+
+
+## Clustering Analysis
+
+```{r, echo = FALSE, message=FALSE, results="hide", warning=FALSE}
+library("factoextra")
+# prepare data
+#gm_america <- filter(gm, region == "America")
+df_cluster <- select(df, income, life)
+# Silhouette Method
+fviz_nbclust(df_cluster, kmeans, method = "silhouette",nstart=10) # cluster 2
+```
+
+The **Figure 4**  is for finding the number of clusters using Silhouette Method.
+
+```{r, echo = FALSE, message=FALSE, results="hide", warning=FALSE}
+# try 2 clusters
+k2 = kmeans(df_cluster, centers = 2)
+# compare
+fviz_cluster(k2, geom = "point", data = df_cluster) + ggtitle("cluster = 2") + xlab("GDP") + ylab("Life Expectancy")
+```
+
+The **Figire 5** is the visualization of kmeans of 2 clusters. It indicates that high GDP will lead to higher life expectancy not only for the above 5 countries, but also applied for rest of the world. However, when the income comes to a certain level, the increase of life expectancy will slow down.
+
